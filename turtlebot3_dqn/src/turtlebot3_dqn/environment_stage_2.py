@@ -45,10 +45,12 @@ class Env():
         self.respawn_goal = Respawn()
 
     def getGoalDistace(self):
+        # Aqui pega a distancia do robo pro objetivo
         goal_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
 
         return goal_distance
 
+    # Aqui pega a odometria e verifica o angulo para o objetivo sempre voltando para valores entre pi e menos pi
     def getOdometry(self, odom):
         self.position = odom.pose.pose.position
         orientation = odom.pose.pose.orientation
@@ -66,17 +68,20 @@ class Env():
 
         self.heading = round(heading, 2)
 
+    #   Aqui pega as leituras do lidar e calcula distancias e angulo ate o obstaculo mais proximo e tambem
+    # a distancia ate o objetivo, definindo que se o robo estiver a 20 cm do objetivo ele terminou ou que se
+    # ele estiver a 13 cm de um obstaculo ele bateu
     def getState(self, scan):
         scan_range = []
         heading = self.heading
-        min_range = 0.13
+        min_range = 0.15
         done = False
 
         for i in range(len(scan.ranges)):
             if scan.ranges[i] == float('Inf'):
                 scan_range.append(3.5)
             elif np.isnan(scan.ranges[i]):
-                scan_range.append(0)
+                scan_range.append(0.01)
             else:
                 scan_range.append(scan.ranges[i])
 
@@ -91,11 +96,16 @@ class Env():
 
         return scan_range + [heading, current_distance, obstacle_min_range, obstacle_angle], done
 
+    # Aqui calcula a recompensa que o robo recebe pela acao tomada
+    # Bater = -150
+    # Chegar no objetivo e 200
+    # E a recompensa por proximidade e definida pelas funcoes de angulo e distancia do objetivo, que estao ali em baixo
     def setReward(self, state, done, action):
         yaw_reward = []
         current_distance = state[-3]
         heading = state[-4]
 
+        # Ver com o professor sobre essa funcao aqui pra poder explicar
         for i in range(5):
             angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
             tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
@@ -119,8 +129,11 @@ class Env():
 
         return reward
 
+    # A cada passo executa essa funcao
     def step(self, action):
+        # Definindo a velocidade angular para a acao especifica e sempre com a mesma velocidade linear
         max_angular_vel = 1.5
+        # A Acao somente influencia na velocidade angular do robo, ou seja pra que lado e quao rapido ele vira
         ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
 
         vel_cmd = Twist()
@@ -128,6 +141,7 @@ class Env():
         vel_cmd.angular.z = ang_vel
         self.pub_cmd_vel.publish(vel_cmd)
 
+        # Espera pela leitura do lidar
         data = None
         while data is None:
             try:
@@ -135,11 +149,13 @@ class Env():
             except:
                 pass
 
+        # Pega o estado atual e a recompensa
         state, done = self.getState(data)
         reward = self.setReward(state, done, action)
 
         return np.asarray(state), reward, done
 
+    # Reseta o robo para o estado inicial com o novo objetivo
     def reset(self):
         rospy.wait_for_service('gazebo/reset_simulation')
         try:
