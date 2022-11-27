@@ -108,10 +108,10 @@ class Respawn():
         #
         # else:
         while position_check:
-            goal_x_list = [1.6, 0, 3]
-            goal_y_list = [9.6, 4.6, -4]
+            goal_x_list = [1.6, 0, 3, -5.2, -3, 6.5]
+            goal_y_list = [9.6, 4.6, -4, 1, 3, 2.1]
 
-            self.index = random.randrange(0, 13)
+            self.index = random.randrange(0, 5)
             print(self.index, self.last_index)
             if self.last_index == self.index:
                 position_check = True
